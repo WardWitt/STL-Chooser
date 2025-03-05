@@ -1,0 +1,16 @@
+[Unit]
+Description=Raspberry Pi hosted STL-Chooser
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=idle
+User=admin
+WorkingDirectory=/home/admin/development
+ExecStart=/usr/bin/python3 /home/admin/development/STL-Chooser.py
+Restart=always
+RestartSec=120
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target
