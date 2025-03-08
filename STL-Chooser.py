@@ -1,6 +1,7 @@
 import socket
 import time
 import re
+import logging
 
 silence_counters = {
     'In1LSilence': 0,
@@ -12,10 +13,30 @@ silence_counters = {
     'In4LSilence': 0,
     'In4RSilence': 0,
     'In5LSilence': 0,
-    'In5RSilence': 0,
+    'In5RSilence': 0
+}
+program_counters = {
+    'In1L': 0,
+    'In1R': 0,
+    'In2L': 0,
+    'In2R': 0,
+    'In3L': 0,
+    'In3R': 0,
+    'In4L': 0,
+    'In4R': 0,
+    'In5L': 0,
+    'In5R': 0
 }
 
 selectedSource = 1
+
+logging.basicConfig(
+    level = logging.INFO,
+    filename="STL-Chooser.log",
+    format="%(name)s - %(levelname)s - %(message)s - %(asctime)s",
+)
+
+logging.info('STL-Chooser startup')
 
 def update_silence_counters():
     try:
@@ -29,7 +50,9 @@ def update_silence_counters():
         if len(meters) == 8:
             for i in range(5):
                 silence_counters[f'In{i+1}LSilence'] = silence_counters[f'In{i+1}LSilence'] + 1 if int(meters[i][1]) < -500 else 0
+                program_counters[f'In{i+1}L'] = program_counters[f'In{i+1}L'] + 1 if int(meters[i][1]) > -1000 else 0
                 silence_counters[f'In{i+1}RSilence'] = silence_counters[f'In{i+1}RSilence'] + 1 if int(meters[i][2]) < -500 else 0
+                program_counters[f'In{i+1}R'] = program_counters[f'In{i+1}R'] + 1 if int(meters[i][2]) > -1000 else 0
             # print(silence_counters)
     except socket.error:
         print("Connection lost. Attempting to reconnect...")
@@ -56,36 +79,41 @@ def dst_info():
 def selectIn1():
     global selectedSource
     if selectedSource != 1:
-        print('Input 1 selected')
-    sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.1 <Fiber>"\n'))
+        logging.info('Input 1 selected')
+        sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.1 <Fiber>"\n'))
+        sock.send(str.encode('LOGIN\nDST 2 ADDR:"239.192.0.1 <Fiber>"\n'))
     selectedSource = 1
     
 def selectIn2():
     global selectedSource
     if selectedSource != 2:
-        print('Input 2 selected')
-    sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.2 <Microwave>"\n'))
+        logging.info('Input 2 selected')
+        sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.2 <Microwave>"\n'))
+        sock.send(str.encode('LOGIN\nDST 2 ADDR:"239.192.0.2 <Microwave>"\n'))
     selectedSource = 2
 
 def selectIn3():
     global selectedSource
     if selectedSource != 3:
-        print('Input 3 selected')
-    sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.3 <IP>"\n'))
+        logging.info('Input 3 selected')
+        sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.3 <IP>"\n'))
+        sock.send(str.encode('LOGIN\nDST 2 ADDR:"239.192.0.3 <IP>"\n'))
     selectedSource = 3
 
 def selectIn4():
     global selectedSource
     if selectedSource != 4:
-        print('Input 4 selected')
-    sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.4 <MP3>"\n'))
+        logging.info('Input 4 selected')
+        sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.4 <MP3>"\n'))
+        sock.send(str.encode('LOGIN\nDST 2 ADDR:"239.192.0.4 <MP3>"\n'))
     selectedSource = 4
 
 def selectIn5():
     global selectedSource
     if selectedSource != 5:
-        print('Input 5 selected')    
-    sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.5 <End Times>"\n'))
+        logging.info('Input 5 selected')    
+        sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.5 <End Times>"\n'))
+        sock.send(str.encode('LOGIN\nDST 2 ADDR:"239.192.0.5 <End Times>"\n'))
     selectedSource = 5
 
 def reconnect():
@@ -93,9 +121,9 @@ def reconnect():
     while True:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect(('192.168.6.247', 93))
+            sock.connect(('10.0.0.42', 93))
             sock.settimeout(10)
-            print("Reconnected to the server.")
+            logging.info("Reconnected to the server.")
             break
         except socket.error:
             print("Failed to reconnect. Retrying in 5 seconds...")
@@ -103,7 +131,7 @@ def reconnect():
 
 try:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(('192.168.6.247', 93))
+    sock.connect(('10.0.0.42', 93))
     sock.settimeout(10)
 except socket.error:
     reconnect()
@@ -111,8 +139,8 @@ except socket.error:
 source_info = src_info()
 destination_info = dst_info()
 
-print(destination_info)
-print(source_info)
+logging.info(destination_info)
+logging.info(source_info)
 
 while True:
     try:
@@ -128,7 +156,8 @@ while True:
             elif(silence_counters['In5LSilence'] < 10 and silence_counters['In5RSilence'] < 10):
                 selectIn5()
         else:
-            selectIn1()
+            if(program_counters['In1L'] > 10 and program_counters['In1R'] > 10):
+                selectIn1()
             
         # if(silence_counters['In2LSilence'] > 30 or silence_counters['In2RSilence'] > 30):
             # print(source_info[1][1] + ' has been silent for ' + str(silence_counters['In2LSilence']) + ' seconds')
@@ -140,5 +169,5 @@ while True:
             # print(source_info[4][1] + ' has been silent for ' + str(silence_counters['In5LSilence']) + ' seconds')
             
     except socket.error:
-        print("Connection lost. Attempting to reconnect...")
+        logging.info("Connection lost. Attempting to reconnect...")
         reconnect()
