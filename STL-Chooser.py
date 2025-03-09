@@ -3,6 +3,7 @@ import time
 import re
 import logging
 import configparser
+from logging.handlers import RotatingFileHandler
 
 # Load configuration
 config = configparser.ConfigParser()
@@ -13,13 +14,21 @@ HOST = config['network']['host']
 PORT = int(config['network']['port'])
 
 # Logging configuration
-logging.basicConfig(
-    level=getattr(logging, config['logging']['level']),
-    filename=config['logging']['filename'],
-    format=config['logging']['format']
-)
+log_level = getattr(logging, config['logging']['level'])
+log_filename = config['logging']['filename']
+log_format = config['logging']['format']
+log_max_bytes = int(config['logging']['max_bytes'])
+log_backup_count = int(config['logging']['backup_count'])
 
-logging.info('STL-Chooser startup')
+handler = RotatingFileHandler(log_filename, maxBytes=log_max_bytes, backupCount=log_backup_count)
+handler.setLevel(log_level)
+handler.setFormatter(logging.Formatter(log_format))
+
+logger = logging.getLogger()
+logger.setLevel(log_level)
+logger.addHandler(handler)
+
+logger.info('STL-Chooser startup')
 
 # Silence and program thresholds
 SILENCE_THRESHOLD = int(config['silence_thresholds']['silence_threshold'])
@@ -92,7 +101,7 @@ def dst_info():
 def selectIn1():
     global selectedSource
     if selectedSource != 1:
-        logging.info('Input 1 selected')
+        logger.info('Input 1 selected')
         sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.1 <Fiber>"\n'))
         sock.send(str.encode('LOGIN\nDST 2 ADDR:"239.192.0.1 <Fiber>"\n'))
     selectedSource = 1
@@ -100,7 +109,7 @@ def selectIn1():
 def selectIn2():
     global selectedSource
     if selectedSource != 2:
-        logging.info('Input 2 selected')
+        logger.info('Input 2 selected')
         sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.2 <Microwave>"\n'))
         sock.send(str.encode('LOGIN\nDST 2 ADDR:"239.192.0.2 <Microwave>"\n'))
     selectedSource = 2
@@ -108,7 +117,7 @@ def selectIn2():
 def selectIn3():
     global selectedSource
     if selectedSource != 3:
-        logging.info('Input 3 selected')
+        logger.info('Input 3 selected')
         sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.3 <IP>"\n'))
         sock.send(str.encode('LOGIN\nDST 2 ADDR:"239.192.0.3 <IP>"\n'))
     selectedSource = 3
@@ -116,7 +125,7 @@ def selectIn3():
 def selectIn4():
     global selectedSource
     if selectedSource != 4:
-        logging.info('Input 4 selected')
+        logger.info('Input 4 selected')
         sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.4 <MP3>"\n'))
         sock.send(str.encode('LOGIN\nDST 2 ADDR:"239.192.0.4 <MP3>"\n'))
     selectedSource = 4
@@ -124,7 +133,7 @@ def selectIn4():
 def selectIn5():
     global selectedSource
     if selectedSource != 5:
-        logging.info('Input 5 selected')    
+        logger.info('Input 5 selected')    
         sock.send(str.encode('LOGIN\nDST 1 ADDR:"239.192.0.5 <End Times>"\n'))
         sock.send(str.encode('LOGIN\nDST 2 ADDR:"239.192.0.5 <End Times>"\n'))
     selectedSource = 5
@@ -136,7 +145,7 @@ def reconnect():
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((HOST, PORT))
             sock.settimeout(10)
-            logging.info("Reconnected to the server.")
+            logger.info("Reconnected to the server.")
             break
         except socket.error:
             print("Failed to reconnect. Retrying in 5 seconds...")
@@ -152,8 +161,8 @@ except socket.error:
 source_info = src_info()
 destination_info = dst_info()
 
-logging.info(destination_info)
-logging.info(source_info)
+logger.info(destination_info)
+logger.info(source_info)
 
 while True:
     try:
@@ -171,5 +180,5 @@ while True:
             if(program_counters['In1L'] > PROGRAM_DURATION and program_counters['In1R'] > PROGRAM_DURATION):
                 selectIn1()
     except socket.error:
-        logging.info("Connection lost. Attempting to reconnect...")
+        logger.info("Connection lost. Attempting to reconnect...")
         reconnect()
